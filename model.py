@@ -862,5 +862,7 @@ class Encoder(nn.Module):
         x = self.norm(x)
         x = rearrange(x, 'n d h w c -> n c d h w')
 
+
+
         return torch.cat([t1_2, t1ce_2, t2_2, flair_2], dim=1), extract_feature[0], extract_feature[1], extract_feature[2], x
 
