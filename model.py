@@ -726,8 +726,14 @@ class BasicLayer(nn.Module):
         attn_mask = compute_mask(Dp, Hp, Wp, window_size, shift_size, t1.device)
 
         for depth, blk in enumerate(self.blocks):
-            t1, t1ce, t2, flair = blk(t1, t1ce, t2, flair, attn_mask,
-                                      cross=True if depth == len(self.blocks) - 1 else False)
+            t1_t1ce = torch.cat((t1, t1ce), dim=1)
+            t1_t2 = torch.cat((t1, t2), dim=1)
+            t1_flair = torch.cat((t1, flair), dim=1)
+            extract_feature, t1_t1ce, t1_t2, t1_flair = blk(t1_t1ce, t1_t2, t1_flair, attn_mask,
+                                                            cross=True if depth == len(self.blocks) - 1 else False)
+        # for depth, blk in enumerate(self.blocks):
+        #     t1, t1ce, t2, flair = blk(t1, t1ce, t2, flair, attn_mask,
+        #                               cross=True if depth == len(self.blocks) - 1 else False)
         extract_feature.append(torch.cat(
             [rearrange(t1, 'b d h w c -> b c d h w'), rearrange(t1ce, 'b d h w c -> b c d h w'),
              rearrange(t2, 'b d h w c -> b c d h w'), rearrange(flair, 'b d h w c -> b c d h w')], dim=1))
@@ -864,5 +870,20 @@ class Encoder(nn.Module):
         x = rearrange(x, 'n d h w c -> n c d h w')
 
         return torch.cat([t1_2, t1ce_2, t2_2, flair_2], dim=1), extract_feature[0], extract_feature[1], extract_feature[2], x
+
+
+class extract(nn.Module):
+        def __init__(self, embed_dim, output_dim, img_size, patch_size, in_chans, depths, num_heads, window_size,
+                     mlp_ratio):
+            super().__init__()
+            self.encoder = Encoder(embed_dim=embed_dim, img_size=img_size, patch_size=patch_size, in_chans=in_chans,
+                                   depths=depths, num_heads=num_heads, window_size=window_size, mlp_ratio=mlp_ratio)
+
+        def forward(self, inputs):
+            t1, t1ce, t2, flair = inputs[:, 0, :, :, :].unsqueeze(1), inputs[:, 1, :, :, :].unsqueeze(1), inputs[:, 2, :
+            , :, :].unsqueeze(1), inputs[:, 3, :, :, :].unsqueeze(1)
+            z1, z2, z3, z4, z5 = self.encoder(t1, t1ce, t2, flair)
+            z0 = torch.cat([t1, t1ce, t2, flair], dim=1)
+            return z0, z1, z2, z3, z4, z5
 
 
